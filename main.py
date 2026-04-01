@@ -11,7 +11,7 @@ load_dotenv()
 
 
 class JobRecommendation(BaseModel):
-    job_title: str = Field(description="Recommended job title")
+    job_title: str = Field(description="Recommended job Title")
     description: str = Field(description="Why this job fits the candidate")
 
 
