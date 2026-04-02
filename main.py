@@ -1,96 +1,46 @@
-from dotenv import load_dotenv
-from pydantic import BaseModel,Field
+from langchain.tools import tool
+from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import PydanticOutputParser
-from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
-from tools import wiki_tool
+from tools import search_jobs
+from dotenv import load_dotenv
 
 load_dotenv()
 
-
-
-class JobRecommendation(BaseModel):
-    job_title: str = Field(description="Recommended job Title")
-    description: str = Field(description="Why this job fits the candidate")
-
-
-class JobRecommendationsOutput(BaseModel):
-    recommendations: list[JobRecommendation]
-
-
-
-llm = ChatOpenAI(
+model = ChatOpenAI(
+    model="gpt-4o",
     temperature=0,
-    model="gpt-4o-mini"   
+    max_tokens=1000,
+    
 )
 
+# 🧰 Tool with split logic
+def job_wrapper(q):
+    try:
+        skills, experience = q.split(",")
+        return search_jobs(skills.strip(), experience.strip())
+    except:
+        return "❌ Please enter input in this format: skills, experience"
 
+@tool
+def job_tool(q: str) -> str:
+    """ Use this tool to find jobs.Input should be: skills, experience """
+    return job_wrapper(q)
 
-parser = PydanticOutputParser(
-    pydantic_object=JobRecommendationsOutput
-)
+# 🤖 LLM
+#model = ChatOpenAI(temperature=0)
 
+# 🚀 Agent
+agent = create_agent(model, tools=[job_tool])
 
+# 🎯 Run
+if __name__ == "__main__":
+    skills = input("Enter your skills: ")
+    experience = input("Enter your experience: ")
 
-prompt = ChatPromptTemplate.from_messages([
-    ("system",
-     """You are an intelligent Job Recommendation Agent.
+    # combine both inputs
+    query = f"{{\"skills\": \"{skills}\", \"experience\": \"{experience}\"}}"
 
-Based on user skills and experience, suggest suitable jobs.
+    response = agent.invoke({"input": query})
 
-IMPORTANT:
-- Output MUST be in JSON
-- Do NOT write anything else
-
-{format_instructions}
-"""),
-
-    ("human", "{input}"),
-    ("placeholder", "{agent_scratchpad}")
-])
-
-
-
-tools = [wiki_tool]
-
-
-
-agent = create_tool_calling_agent(
-    llm=llm,
-    prompt=prompt,
-    tools=tools
-)
-
-agent_executor = AgentExecutor(
-    agent=agent,
-    tools=tools,
-    verbose=True
-)
-
-
-
-print("Enter your details:")
-skills = input("Enter Skills: ")
-exp = input("Enter Experience: ")
-
-query = f"Skills: {skills}, Experience: {exp}"
-
-
-
-try:
-    raw_response = agent_executor.invoke({
-        "input": query,
-        "format_instructions": parser.get_format_instructions()
-    })
-
-    output_text = raw_response.get("output", "")
-
-    structured_response = parser.parse(output_text)
-
-    print("\n✅ Structured Output:")
-    print(structured_response.model_dump_json(indent=2))
-
-except Exception as e:
-    print("❌ Error parsing response:", e)
-    print("Raw Response:", raw_response)
+    print("\n🔥 Recommended Jobs:\n")
+    print(response)
