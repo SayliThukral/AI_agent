@@ -44,9 +44,10 @@ def search_jobs(skills: str, experience: str) -> str:
             title = job.get("job_title", "N/A")
             company = job.get("employer_name", "N/A")
             location = job.get("job_city", "N/A")
+            apply_link = job.get("job_apply_link", "N/A")
 
             result.append(
-                f"🔹 {title}\n🏢 {company}\n📍 {location}\n"
+                f"🔹 {title}\n🏢 {company}\n📍 {location}\n🔗 Apply here: {apply_link}\n"
             )
 
         # 🔹 Return final output
